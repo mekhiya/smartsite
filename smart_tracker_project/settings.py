@@ -10,7 +10,7 @@ load_dotenv()
 # Access the environment variables from the .env file
 AWS_ACCESS_KEY_ID = os.getenv('aws_access_key')
 AWS_SECRET_ACCESS_KEY = os.getenv('aws_secret_key')
-AWS_REGION_NAME = os.getenv('aws_region')
+AWS_REGION = os.getenv('aws_region')
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -108,6 +108,25 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': '/home/ubuntu/smartSiteTracker/smart_tracker_project/debug.log',  # Example path
+        },
+    },
+    'loggers': {
+        '': {  # root logger
+            'handlers': ['file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
 
 
 # Internationalization

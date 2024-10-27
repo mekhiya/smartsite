@@ -1,46 +1,67 @@
-from celery import shared_task
-from .models import Person, AttendanceRecord
-from .utils import S3ImageHandler
+import logging
+import pickle
+import io, os
 import face_recognition
-import numpy as np
+import boto3
+from attendance_manager.models import Person
+from celery import shared_task
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+# Initialize S3 client with environment variables
+s3 = boto3.client(
+    's3',
+    aws_access_key_id=os.getenv('aws_access_key'),
+    aws_secret_access_key=os.getenv('aws_secret_key'),
+    region_name=os.getenv('aws_region')
+)
 
 @shared_task
 def process_attendance(image_key, bucket_name, device_id, site_id):
-    # Initialize the S3 Image Handler
-    image_handler = S3ImageHandler()
+    # Log AWS credentials to confirm they are loaded (for debugging)
+    logger.info(f"AWS Access Key: {os.getenv('aws_access_key')}")
+    logger.info(f"AWS Secret Key: {os.getenv('aws_secret_key')}")
 
-    # Download the image from S3
-    image = image_handler.download_image(bucket_name, image_key)
-    if not image:
-        return {"status": "error", "message": "Image download failed"}
+    try:
+        # Log start of attendance processing
+        logger.info(f"Starting attendance processing for image_key={image_key}, bucket_name={bucket_name}, device_id={device_id}, site_id={site_id}")
 
-    # Convert image to RGB if not already in that format
-    if image.mode != 'RGB':
-        image = image.convert('RGB')
+        # Step 1: Download the image from S3
+        response = s3.get_object(Bucket=bucket_name, Key=image_key)
+        image_data = response['Body'].read()
+        logger.info(f"Successfully downloaded image {image_key} from S3")
 
-    # Convert the image object to a numpy array
-    image_array = np.array(image)
+        # Step 2: Load image with face_recognition using io.BytesIO
+        image = face_recognition.load_image_file(io.BytesIO(image_data))
+        encodings = face_recognition.face_encodings(image)
 
-    # Find face locations and encodings
-    face_locations = face_recognition.face_locations(image_array)
-    face_encodings = face_recognition.face_encodings(image_array, face_locations)
+        # Check if faces are detected
+        if encodings:
+            logger.info(f"Number of faces detected: {len(encodings)}")
+            encoding = encodings[0]
 
-    if len(face_encodings) == 0:
-        return {"status": "error", "message": "No face detected"}
+            # Step 3: Compare with existing encodings in the database
+            for person in Person.objects.all():
+                person_encoding = pickle.loads(person.face_encoding)
+                matches = face_recognition.compare_faces([person_encoding], encoding, tolerance=0.6)
+                if True in matches:
+                    logger.info(f"Attendance recorded for {person.name}")
+                    # Add any logic needed to update or save attendance data in the database here
+                    return {
+                        "status": "success",
+                        "person": person.name,
+                        "site_id": site_id,
+                        "device_id": device_id,
+                    }
+            logger.info("No matching face found in the database")
+            return {"status": "unmatched", "message": "No matching face found"}
 
-    matched_person = None
-    for encoding in face_encodings:
-        # Compare each face encoding with known persons in the system
-        people = Person.objects.all()
-        for person in people:
-            matches = face_recognition.compare_faces([person.face_encoding], encoding)
-            if True in matches:
-                matched_person = person
-                break
+        else:
+            logger.info("No face detected in the image")
+            return {"status": "error", "message": "No face detected"}
 
-    if matched_person:
-        # Create a new attendance record
-        AttendanceRecord.objects.create(person=matched_person, status="Present", image=image_key, site_id=site_id, device_id=device_id)
-        return {"status": "success", "person": matched_person.name, "site_id": site_id, "device_id": device_id}
-    else:
-        return {"status": "unmatched", "message": "No matching face found"}
+    except Exception as e:
+        # Log any exception that occurs during processing
+        logger.error(f"Error processing attendance for image {image_key}: {e}")
+        return {"status": "error", "message": str(e)}

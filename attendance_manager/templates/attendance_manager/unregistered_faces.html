@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Unregistered Faces</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        img {
+            border-radius: 5px;
+        }
+        form {
+            display: flex;
+            gap: 10px;
+        }
+        input, button {
+            padding: 5px;
+            font-size: 14px;
+        }
+        input {
+            flex: 1;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Unregistered Faces</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Image</th>
+                <th>Full Image</th>
+                <th>Image Key</th>
+                <th>Site ID</th>
+                <th>Device ID</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for face in unregistered_faces %}
+            <tr>
+                <td>
+                    <img src="{{ face.image_url }}" alt="Cropped face" style="width: 100px; height: auto;">
+                </td>
+                <td>
+                    <a href="{{ face.image_url }}" target="_blank">
+                        <img src="{{ face.image_url }}" alt="View Full Image" style="width: 20px; height: 20px; cursor: pointer;">
+                    </a>
+                </td>
+                <td>{{ face.image_key }}</td>
+                <td>{{ face.site_id }}</td>
+                <td>{{ face.device_id }}</td>
+                <td>
+                    <form action="{% url 'register_person' %}" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="image_key" value="{{ face.image_key }}">
+                        <input type="text" name="name" placeholder="Enter Name">
+                        <input type="text" name="department" placeholder="Enter Department">
+                        <button type="submit">Register</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

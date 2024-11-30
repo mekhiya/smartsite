@@ -12,6 +12,9 @@ AWS_ACCESS_KEY_ID = os.getenv('aws_access_key')
 AWS_SECRET_ACCESS_KEY = os.getenv('aws_secret_key')
 AWS_REGION = os.getenv('aws_region')
 
+AWS_BUCKET_NAME = os.getenv('bucket_name')
+AWS_S3_FOLDER = os.getenv('s3_folder')
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
